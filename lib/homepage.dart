@@ -1,9 +1,9 @@
 import 'dart:collection';
-import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_appss/myvar.dart';
+import 'package:flutter_appss/user.dart';
 
 import 'Msg.dart';
 
@@ -15,10 +15,10 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late TextEditingController controller;
   List<Msg> msgs = [];
+  List<User> users = [];
 
+  bool isTyping = false;
   late FirebaseFirestore firestore;
-
-
 
   void sendMsg() {
     String msg = controller.text;
@@ -35,35 +35,51 @@ class _HomePageState extends State<HomePage> {
       });
     }
   }
-  
-  
-  void getMsgs(){
-    
-    
-    firestore.collection("msgs").orderBy("sendtime",descending: false).snapshots(includeMetadataChanges: true).listen((event) {
 
-
-      List<DocumentSnapshot> data=event.docs;
+  void getMsgs() {
+    firestore
+        .collection("msgs")
+        .orderBy("sendtime", descending: false)
+        .snapshots(includeMetadataChanges: true)
+        .listen((event) {
+      List<DocumentSnapshot> data = event.docs;
 
       msgs.clear();
 
-     // data..forEach((element) { })
+      // data..forEach((element) { })
 
-      for(int i=0;i<data.length;i++)
-        {
-          DocumentSnapshot m=data[i];
-          Map<dynamic,dynamic> mainMap=m.data() as Map;
-          msgs.add(Msg(mainMap));
-        }
+      for (int i = 0; i < data.length; i++) {
+        DocumentSnapshot m = data[i];
+        Map<dynamic, dynamic> mainMap = m.data() as Map;
+        msgs.add(Msg(mainMap));
+      }
 
       setState(() {});
-
     });
-    
-    
   }
-  
-  
+
+  void getUsers() {
+    firestore
+        .collection("users")
+        .orderBy("updatetime", descending: false)
+        .snapshots(includeMetadataChanges: true)
+        .listen((event) {
+      List<DocumentSnapshot> data = event.docs;
+
+      users.clear();
+
+      // data..forEach((element) { })
+
+      for (int i = 0; i < data.length; i++) {
+        DocumentSnapshot m = data[i];
+        Map<dynamic, dynamic> mainMap = m.data() as Map;
+        users.add(User(data: mainMap));
+      }
+
+      setState(() {});
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -71,6 +87,7 @@ class _HomePageState extends State<HomePage> {
     firestore = FirebaseFirestore.instance;
     controller = TextEditingController();
     getMsgs();
+    getUsers();
   }
 
   @override
@@ -80,10 +97,47 @@ class _HomePageState extends State<HomePage> {
         body: Column(
           children: [
             getAppBar(),
+            userSlider(),
             msgList(),
             getBottomBar(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget userSlider() {
+    return Container(
+      height: 90,
+      width: MediaQuery.of(context).size.width,
+      child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: users.length,
+          itemBuilder: (ctx, index) {
+            return userAvtar(users[index]);
+          }),
+    );
+  }
+
+  Widget userAvtar(User user) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipOval(
+            child: Image.network(
+              user.image,
+              height: 60,
+              width: 60,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Text(
+            user.uid!,
+            style: TextStyle(color: user.istyping! ? Colors.deepPurple: Colors.black38, fontSize: 20),
+          )
+        ],
       ),
     );
   }
@@ -102,13 +156,19 @@ class _HomePageState extends State<HomePage> {
     return Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          color: m.userId==Myvar.myid?Colors.blue:Colors.deepPurple,
+          color: m.userId == Myvar.myid ? Colors.blue : Colors.deepPurple,
         ),
         padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         child: Column(
-          crossAxisAlignment:m.userId==Myvar.myid? CrossAxisAlignment.end:CrossAxisAlignment.start,
+          crossAxisAlignment: m.userId == Myvar.myid
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
-            Text(m.userId+" : "+m.msg,style: TextStyle(color: Colors.white,fontWeight: FontWeight.w600),),
+            Text(
+              m.userId + " : " + m.msg,
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
           ],
         ));
   }
@@ -132,13 +192,25 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
- 
-
   Widget getBottomBar() {
     return Row(
       children: [
         Expanded(
             child: TextField(
+          onChanged: (val) {
+            if (val.isEmpty) {
+              isTyping = false;
+            } else {
+              isTyping = true;
+            }
+
+            Map<String,Object> updateData=HashMap();
+            updateData["istyping"]=isTyping;
+            updateData["updatetime"]=FieldValue.serverTimestamp();
+            firestore.collection("users").doc(Myvar.myid).update(updateData);
+
+
+          },
           controller: controller,
         )),
         InkWell(

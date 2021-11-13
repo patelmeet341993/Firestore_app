@@ -1,3 +1,6 @@
+import 'dart:collection';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_appss/homepage.dart';
 import 'package:flutter_appss/myvar.dart';
@@ -67,9 +70,17 @@ class _LoginPageState extends State<LoginPage> {
                       {
                         await sharedPreferences.setString("id", id);
                         Myvar.myid=id;
+
+                        Map<String,dynamic> data=HashMap();
+                        data["uid"]=id;
+                        data["istyping"]=false;
+                        data["updatetime"]=FieldValue.serverTimestamp();
+                        data["urls"]="https://ph-files.imgix.net/2fb378d7-0035-4a85-817c-e819d8f5dbaa.png?auto=format&auto=compress&codec=mozjpeg&cs=strip";
+
+                        
+                        await FirebaseFirestore.instance.collection("users").doc(id).set(data);
                         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=>HomePage()));
-
-
+                        
                       }
 
                   },
